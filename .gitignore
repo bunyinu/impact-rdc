@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.npm-cache/
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
+data/ledger.json
+*.log
+.agentmesh/
+.codex
+index-enhanced.html
