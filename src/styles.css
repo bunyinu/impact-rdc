@@ -1248,7 +1248,8 @@ button {
   padding: 0 1rem 1rem;
 }
 
-.danger-action {
+.danger-action,
+.delete-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1261,6 +1262,12 @@ button {
   background: var(--red);
   font-weight: 900;
   transition: 0.2s ease;
+}
+
+.delete-action {
+  color: #7f1d1d;
+  background: #fee2e2;
+  border: 1px solid rgba(127, 29, 29, 0.18);
 }
 
 .danger-action:hover {
@@ -1667,7 +1674,8 @@ button {
 
   .primary-action,
   .secondary-action,
-  .danger-action {
+  .danger-action,
+  .delete-action {
     width: 100%;
   }
 
