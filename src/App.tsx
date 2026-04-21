@@ -244,6 +244,23 @@ export function App() {
     setToast(reviewMessage);
   }
 
+  function deleteReport(reportId: string) {
+    if (!reviewerUnlocked) {
+      setToast('Accès admin requis.');
+      return;
+    }
+
+    setStoredState((current) => {
+      const reports = current.reports.filter((report) => report.id !== reportId);
+      return {
+        ...current,
+        officials: applyVerifiedReports(reports),
+        reports,
+      };
+    });
+    setToast('Signalement supprimé de la file admin.');
+  }
+
   function unlockReviewer(event: FormEvent) {
     event.preventDefault();
     if (!adminConfigured) {
@@ -317,6 +334,7 @@ export function App() {
             adminConfigured={adminConfigured}
             adminLogin={adminLogin}
             onAdminLoginChange={setAdminLogin}
+            onDeleteReport={deleteReport}
             onReviewerLock={lockReviewer}
             onReviewerLogin={unlockReviewer}
             onReview={reviewReport}
@@ -821,6 +839,7 @@ function AdminPortalSection({
   adminLogin,
   officials,
   onAdminLoginChange,
+  onDeleteReport,
   onReviewerLock,
   onReviewerLogin,
   onReview,
@@ -831,6 +850,7 @@ function AdminPortalSection({
   adminLogin: AdminLoginFields;
   officials: Official[];
   onAdminLoginChange: (fields: AdminLoginFields) => void;
+  onDeleteReport: (reportId: string) => void;
   onReviewerLock: () => void;
   onReviewerLogin: (event: FormEvent) => void;
   onReview: (reportId: string, status: Report['status']) => void;
@@ -982,6 +1002,9 @@ function AdminPortalSection({
                     </button>
                     <button className="secondary-action" onClick={() => onReview(activeReport.id, 'En attente de vérification')} type="button">
                       Renvoyer en attente
+                    </button>
+                    <button className="delete-action" onClick={() => onDeleteReport(activeReport.id)} type="button">
+                      Supprimer
                     </button>
                   </div>
                 </article>
