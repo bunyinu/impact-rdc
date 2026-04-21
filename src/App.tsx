@@ -15,14 +15,21 @@ import { getAverageScore, getHotspotMinistry, getRecommendation, rankOfficials }
 import type { Official, Report, SectionId } from './types';
 
 const storageKey = 'impact-rdc-state-v3';
+const adminSessionKey = 'impact-rdc-admin-session-v1';
 const verificationDesk = 'Cellule éditoriale Impact RDC';
-const reviewerCode = String(import.meta.env.VITE_REVIEWER_CODE ?? '').trim();
-const reviewerConfigured = reviewerCode.length > 0;
+const adminUsername = String(import.meta.env.VITE_ADMIN_USERNAME ?? '').trim();
+const adminPassword = String(import.meta.env.VITE_ADMIN_PASSWORD ?? import.meta.env.VITE_REVIEWER_CODE ?? '').trim();
+const adminConfigured = adminUsername.length > 0 && adminPassword.length > 0;
 
 type StoredState = {
   officials: Official[];
   reports: Report[];
   signatures: number;
+};
+
+type AdminLoginFields = {
+  username: string;
+  password: string;
 };
 
 const navItems: Array<{ id: SectionId; label: string }> = [
@@ -35,6 +42,10 @@ const navItems: Array<{ id: SectionId; label: string }> = [
 
 function getInitialSection(): SectionId {
   return window.location.hash === '#admin' ? 'admin' : 'signal';
+}
+
+function loadAdminSession() {
+  return window.sessionStorage.getItem(adminSessionKey) === 'unlocked';
 }
 
 function createReportId() {
@@ -120,8 +131,8 @@ export function App() {
   const [query, setQuery] = useState('');
   const [ministry, setMinistry] = useState('Tous');
   const [reportOpen, setReportOpen] = useState(false);
-  const [reviewerInput, setReviewerInput] = useState('');
-  const [reviewerUnlocked, setReviewerUnlocked] = useState(false);
+  const [adminLogin, setAdminLogin] = useState<AdminLoginFields>({ username: '', password: '' });
+  const [reviewerUnlocked, setReviewerUnlocked] = useState(loadAdminSession);
   const [toast, setToast] = useState('');
   const [isPending, startTransition] = useTransition();
   const deferredQuery = useDeferredValue(query);
@@ -235,22 +246,24 @@ export function App() {
 
   function unlockReviewer(event: FormEvent) {
     event.preventDefault();
-    if (!reviewerConfigured) {
-      setToast('Aucun code vérificateur configuré côté serveur.');
+    if (!adminConfigured) {
+      setToast('Identifiants admin non configurés côté serveur.');
       return;
     }
-    if (reviewerInput.trim() !== reviewerCode) {
-      setToast('Code vérificateur incorrect.');
+    if (adminLogin.username.trim() !== adminUsername || adminLogin.password !== adminPassword) {
+      setToast('Identifiants admin incorrects.');
       return;
     }
-    setReviewerInput('');
+    setAdminLogin({ username: '', password: '' });
+    window.sessionStorage.setItem(adminSessionKey, 'unlocked');
     setReviewerUnlocked(true);
-    setToast('Mode vérificateur activé.');
+    setToast('Session admin ouverte.');
   }
 
   function lockReviewer() {
+    window.sessionStorage.removeItem(adminSessionKey);
     setReviewerUnlocked(false);
-    setToast('Mode vérificateur verrouillé.');
+    setToast('Session admin verrouillée.');
   }
 
   return (
@@ -301,13 +314,13 @@ export function App() {
         {section === 'admin' && (
           <AdminPortalSection
             officials={storedState.officials}
-            onReviewerInput={setReviewerInput}
+            adminConfigured={adminConfigured}
+            adminLogin={adminLogin}
+            onAdminLoginChange={setAdminLogin}
             onReviewerLock={lockReviewer}
             onReviewerLogin={unlockReviewer}
             onReview={reviewReport}
             reports={storedState.reports}
-            reviewerConfigured={reviewerConfigured}
-            reviewerInput={reviewerInput}
             reviewerUnlocked={reviewerUnlocked}
           />
         )}
@@ -804,24 +817,24 @@ function ReportPortalSection({
 }
 
 function AdminPortalSection({
+  adminConfigured,
+  adminLogin,
   officials,
-  onReviewerInput,
+  onAdminLoginChange,
   onReviewerLock,
   onReviewerLogin,
   onReview,
   reports,
-  reviewerConfigured,
-  reviewerInput,
   reviewerUnlocked,
 }: {
+  adminConfigured: boolean;
+  adminLogin: AdminLoginFields;
   officials: Official[];
-  onReviewerInput: (value: string) => void;
+  onAdminLoginChange: (fields: AdminLoginFields) => void;
   onReviewerLock: () => void;
   onReviewerLogin: (event: FormEvent) => void;
   onReview: (reportId: string, status: Report['status']) => void;
   reports: Report[];
-  reviewerConfigured: boolean;
-  reviewerInput: string;
   reviewerUnlocked: boolean;
 }) {
   const [activeReportId, setActiveReportId] = useState<string | null>(null);
@@ -859,28 +872,40 @@ function AdminPortalSection({
             </div>
             <h3>File d'approbation verrouillée</h3>
             <p>
-              Le public peut déposer un fait, mais ne peut pas le valider. Configure un code admin pour ouvrir
-              la file de vérification.
+              Le public peut déposer un fait, mais ne peut pas le valider. Connecte-toi avec un compte admin
+              pour ouvrir la file de vérification.
             </p>
           </div>
           <form className="admin-login" onSubmit={onReviewerLogin}>
             <label>
-              Code admin
+              Identifiant admin
               <input
-                disabled={!reviewerConfigured}
-                onChange={(event) => onReviewerInput(event.target.value)}
-                placeholder={reviewerConfigured ? 'Code admin' : 'VITE_REVIEWER_CODE manquant'}
-                type="password"
-                value={reviewerInput}
+                autoComplete="username"
+                disabled={!adminConfigured}
+                onChange={(event) => onAdminLoginChange({ ...adminLogin, username: event.target.value })}
+                placeholder={adminConfigured ? 'admin@impact-rdc' : 'VITE_ADMIN_USERNAME manquant'}
+                type="text"
+                value={adminLogin.username}
               />
             </label>
-            <button className="primary-action" disabled={!reviewerConfigured} type="submit">
-              Ouvrir l'admin
+            <label>
+              Mot de passe
+              <input
+                autoComplete="current-password"
+                disabled={!adminConfigured}
+                onChange={(event) => onAdminLoginChange({ ...adminLogin, password: event.target.value })}
+                placeholder={adminConfigured ? 'Mot de passe admin' : 'VITE_ADMIN_PASSWORD manquant'}
+                type="password"
+                value={adminLogin.password}
+              />
+            </label>
+            <button className="primary-action" disabled={!adminConfigured} type="submit">
+              Se connecter
             </button>
             <small>
-              {reviewerConfigured
-                ? 'Session locale: verrouille après validation.'
-                : 'Ajoute VITE_REVIEWER_CODE dans .env.local puis redémarre le serveur.'}
+              {adminConfigured
+                ? 'Session locale active jusqu’au verrouillage ou la fermeture de l’onglet.'
+                : 'Ajoute VITE_ADMIN_USERNAME et VITE_ADMIN_PASSWORD, puis redéploie.'}
             </small>
           </form>
         </div>
